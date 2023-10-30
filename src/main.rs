@@ -1,5 +1,5 @@
 use std::net::TcpListener;
-use std::io::{Write, Read};
+use std::io::{Write, Read, BufReader, BufRead};
 use anyhow::bail;
 use nom::{
     branch::alt,
@@ -101,7 +101,17 @@ fn main() {
         match stream {
             Ok(mut stream) => {
                 let mut request = String::new();
-                let _ = stream.read_to_string(&mut request).unwrap();
+                let mut buffer = BufReader::new(&stream);
+
+                // TODO: Parse the input line by line, instead of copying it over and over.
+                loop {
+                    let mut line = String::new();
+                    let size = buffer.read_line(&mut line).expect("Error while reading from stream.");
+                    request.push_str(&line);
+                    if line == "\r\n" || size == 0 {
+                        break;
+                    }
+                }
                 let request = request.parse::<Request>().unwrap();
 
                 eprintln!("{request:?}");

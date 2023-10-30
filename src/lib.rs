@@ -1,4 +1,5 @@
 pub mod request;
+pub mod response;
 
 use request::Request;
 use std::io::{BufRead, BufReader, Write};

@@ -5,6 +5,8 @@ use request::Request;
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
 
+use crate::response::{Response, StatusCode, ContentType};
+
 pub fn start() {
     let listener = TcpListener::bind("127.0.0.1:4221").unwrap();
 
@@ -31,8 +33,27 @@ pub fn start() {
 
                 let _ = match request.header.path.as_str() {
                     "/" => stream.write(b"HTTP/1.1 200 OK\r\n\r\n").unwrap(),
+                    s if s.starts_with("/echo/") => {
+                        let body = s.strip_prefix("/echo/").unwrap();
+
+                        let response = Response {
+                            header: response::Header {
+                                version: 1,
+                                code: StatusCode::Ok,
+                            },
+                            content_type: ContentType::TextPlain,
+                            content_lenght: body.len(),
+                            body: body.to_string(),
+                        };
+
+                        eprint!("{response}");
+
+                        stream.write(response.to_string().as_bytes()).unwrap()
+                    },
                     _ => stream.write(b"HTTP/1.1 404 NotFound\r\n\r\n").unwrap(),
                 };
+
+
 
                 eprintln!("accepted new connection");
             }

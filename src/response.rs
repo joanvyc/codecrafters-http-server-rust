@@ -11,7 +11,7 @@ pub struct Response {
 
 impl Display for Response {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}\r\n{}\r\nContent-Lenght: {}\r\n\r\n{}\r\n",
+        write!(f, "{}\r\n{}\r\nContent-Length: {}\r\n\r\n{}\r\n",
             self.header,
             self.content_type,
             self.content_lenght,

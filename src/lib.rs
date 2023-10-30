@@ -33,6 +33,23 @@ pub fn start() {
 
                 let _ = match request.header.path.as_str() {
                     "/" => stream.write(b"HTTP/1.1 200 OK\r\n\r\n").unwrap(),
+                    "/user-agent" => {
+                        let body = request.user_agent;
+                        let response = Response {
+                            header: response::Header {
+                                version: 1,
+                                code: StatusCode::Ok,
+                            },
+                            content_type: ContentType::TextPlain,
+                            content_lenght: body.len(),
+                            body: body.to_string(),
+                        };
+
+                        eprint!("{response}");
+
+                        stream.write(response.to_string().as_bytes()).unwrap()
+
+                    },
                     s if s.starts_with("/echo/") => {
                         let body = s.strip_prefix("/echo/").unwrap();
 

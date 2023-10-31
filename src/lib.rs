@@ -41,18 +41,29 @@ async fn process_request(mut stream: TcpStream) -> Result<(TcpStream, Request)> 
 
 async fn process_response(mut stream: TcpStream, request: Request) -> Result<()> {
 
-    let response = match request.header.path.as_str() {
+    let response = match request.start_line.path.as_str() {
         "/" => Response {
             header: response::Header { version: 1, code: StatusCode::Ok },
             content_type: ContentType::TextPlain,
             content_lenght: 0,
             body: "".to_string(),
         },
-        "/user-agent" => Response {
-            header: response::Header { version: 1, code: StatusCode::Ok },
-            content_type: ContentType::TextPlain,
-            content_lenght: request.user_agent.len(),
-            body: request.user_agent,
+        "/user-agent" => {
+            if let Some(body) = request.header.get("User-Agent") {
+                Response {
+                    header: response::Header { version: 1, code: StatusCode::Ok },
+                    content_type: ContentType::TextPlain,
+                    content_lenght: body.len(),
+                    body: body.to_owned(),
+                }
+            } else {
+                Response {
+                    header: response::Header { version: 1, code: StatusCode::NotFound },
+                    content_type: ContentType::TextPlain,
+                    content_lenght: 0,
+                    body: "".to_string(),
+                }
+            }
         },
         s if s.starts_with("/echo/") => { 
             let body = s.strip_prefix("/echo/").unwrap();

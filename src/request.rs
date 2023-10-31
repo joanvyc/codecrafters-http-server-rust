@@ -3,33 +3,37 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, take_until},
     character::complete::{crlf, not_line_ending},
-    sequence::{delimited, terminated, tuple},
+    sequence::{terminated, tuple, separated_pair},
 };
-use std::str::FromStr;
+use std::{str::FromStr, collections::HashMap};
 
 #[derive(Debug)]
 pub struct Request {
-    pub header: Header,
-    pub host: String,
-    pub user_agent: String,
+    pub start_line: Header,
+    pub header: HashMap<String, String>
 }
 
 impl FromStr for Request {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        let mut parse_host = delimited(tag("Host: "), not_line_ending::<_, ()>, crlf);
-        let mut parse_user_agent = delimited(tag("User-Agent: "), not_line_ending::<_, ()>, crlf);
+        let mut parse_header_line = separated_pair(take_until(":"), tag(": "), not_line_ending::<_, ()>);
 
-        let (value, header) = parse_header(s).unwrap();
-        let (value, host) = parse_host(value).unwrap();
-        let (_, user_agent) = parse_user_agent(value).unwrap();
+        let mut header = HashMap::new();
 
-        Ok(Request {
-            header,
-            host: host.to_string(),
-            user_agent: user_agent.to_string(),
-        })
+        let request = s;
+        let (request, start_line) = parse_start_line(request).unwrap();
+        let mut request = request;
+        loop {
+            if request == "\r\n" || request == "" {
+                break;
+            }
+            let (rem_request, (key, value)) = parse_header_line(request).unwrap();
+            header.insert(key.to_string(), value.to_string());
+            request = rem_request;
+        }
+
+        Ok(Request { start_line, header })
     }
 }
 
@@ -40,7 +44,7 @@ pub struct Header {
     pub version: HTTPVersion,
 }
 
-fn parse_header(value: &str) -> nom::IResult<&str, Header> {
+fn parse_start_line(value: &str) -> nom::IResult<&str, Header> {
     let mut parse = tuple((
         terminated(alt((tag("GET"), tag("POST"))), tag(" ")),
         terminated(take_until(" "), tag(" ")),

@@ -2,81 +2,99 @@ pub mod request;
 pub mod response;
 
 use request::Request;
-use std::io::{BufRead, BufReader, Write};
-use std::net::TcpListener;
+use tokio::{
+    io::{AsyncBufReadExt, BufReader, AsyncWriteExt, Result},
+    net::{TcpListener, TcpStream}, task::JoinSet, select,
+};
 
 use crate::response::{Response, StatusCode, ContentType};
 
-pub fn start() {
-    let listener = TcpListener::bind("127.0.0.1:4221").unwrap();
+async fn process_request(mut stream: TcpStream) -> Result<(TcpStream, Request)> {
 
-    for stream in listener.incoming() {
-        match stream {
-            Ok(mut stream) => {
-                let mut request = String::new();
-                let mut buffer = BufReader::new(&stream);
+    let mut reader = BufReader::new(&mut stream);
 
-                // TODO: Parse the input line by line, instead of copying it over and over.
-                loop {
-                    let mut line = String::new();
-                    let size = buffer
-                        .read_line(&mut line)
-                        .expect("Error while reading from stream.");
-                    request.push_str(&line);
-                    if line == "\r\n" || size == 0 {
-                        break;
-                    }
-                }
-                let request = request.parse::<Request>().unwrap();
+    let mut line = String::new();
+    let mut request = String::new();
 
-                eprintln!("{request:?}");
-
-                let _ = match request.header.path.as_str() {
-                    "/" => stream.write(b"HTTP/1.1 200 OK\r\n\r\n").unwrap(),
-                    "/user-agent" => {
-                        let body = request.user_agent;
-                        let response = Response {
-                            header: response::Header {
-                                version: 1,
-                                code: StatusCode::Ok,
-                            },
-                            content_type: ContentType::TextPlain,
-                            content_lenght: body.len(),
-                            body: body.to_string(),
-                        };
-
-                        eprint!("{response}");
-
-                        stream.write(response.to_string().as_bytes()).unwrap()
-
-                    },
-                    s if s.starts_with("/echo/") => {
-                        let body = s.strip_prefix("/echo/").unwrap();
-
-                        let response = Response {
-                            header: response::Header {
-                                version: 1,
-                                code: StatusCode::Ok,
-                            },
-                            content_type: ContentType::TextPlain,
-                            content_lenght: body.len(),
-                            body: body.to_string(),
-                        };
-
-                        eprint!("{response}");
-
-                        stream.write(response.to_string().as_bytes()).unwrap()
-                    },
-                    _ => stream.write(b"HTTP/1.1 404 NotFound\r\n\r\n").unwrap(),
-                };
-
-
-
-                eprintln!("accepted new connection");
-            }
+    loop {
+        match reader.read_line(&mut line).await {
+            Ok(0) => {
+                // Connection closed.
+                break;
+            },
+            Ok(_) => {
+                request.push_str(&line);
+                if &line == "\r\n" { break; }
+                line.clear();
+            },
             Err(e) => {
-                eprintln!("error: {}", e);
-            }
+                eprintln!("Error reading from the stream: {e}");
+            },
         }
     }
+
+    Ok((
+        stream,
+        request.parse::<Request>().expect("a parsable request"),
+    ))
+}
+
+async fn process_response(mut stream: TcpStream, request: Request) -> Result<()> {
+
+    let response = match request.header.path.as_str() {
+        "/" => Response {
+            header: response::Header { version: 1, code: StatusCode::Ok },
+            content_type: ContentType::TextPlain,
+            content_lenght: 0,
+            body: "".to_string(),
+        },
+        "/user-agent" => Response {
+            header: response::Header { version: 1, code: StatusCode::Ok },
+            content_type: ContentType::TextPlain,
+            content_lenght: request.user_agent.len(),
+            body: request.user_agent,
+        },
+        s if s.starts_with("/echo/") => { 
+            let body = s.strip_prefix("/echo/").unwrap();
+            Response { 
+                header: response::Header { version: 1, code: StatusCode::Ok },
+                content_type: ContentType::TextPlain,
+                content_lenght: body.len(),
+                body: body.to_string(),
+            }
+        }
+        _ => Response {
+            header: response::Header { version: 1, code: StatusCode::NotFound },
+            content_type: ContentType::TextPlain,
+            content_lenght: 0,
+            body: "".to_string(),
+        },
+    };
+
+    stream.write(response.to_string().as_bytes()).await.unwrap();
+
+    Ok(())
+}
+
+pub async fn run_server() {
+
+    let mut requests = JoinSet::new();
+    let mut responses = JoinSet::new();
+
+    let listener = TcpListener::bind("127.0.0.1:4221").await.unwrap();
+
+    loop {
+        select! {
+            Ok((stream, _)) = listener.accept() => {
+                requests.spawn(process_request(stream));
+            }
+
+            Some(Ok(Ok((stream, request)))) = requests.join_next() => {
+                responses.spawn(process_response(stream, request));
+            }
+
+            Some(Ok(Ok(()))) = responses.join_next() => {}
+        }
+    }
+
 }

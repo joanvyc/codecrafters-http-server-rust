@@ -32,14 +32,18 @@ impl Display for Header {
 
 pub enum StatusCode {
     Ok,
+    Created,
     NotFound,
+    InternalServerError,
 }
 
 impl Display for StatusCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Ok => write!(f, "200 OK"),
+            Self::Created => write!(f, "201 Created"),
             Self::NotFound => write!(f, "404 NotFound"),
+            Self::InternalServerError => write!(f, "500 InternalServerError"),
         }
     }
 }

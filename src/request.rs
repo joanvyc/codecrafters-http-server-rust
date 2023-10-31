@@ -11,6 +11,7 @@ use std::{collections::HashMap, str::FromStr};
 pub struct Request {
     pub start_line: Header,
     pub header: HashMap<String, String>,
+    pub body: Vec<u8>,
 }
 
 impl FromStr for Request {
@@ -39,7 +40,7 @@ impl FromStr for Request {
             request = rem_request;
         }
 
-        Ok(Request { start_line, header })
+        Ok(Request { start_line, header, body: Vec::new() })
     }
 }
 
@@ -71,6 +72,7 @@ fn parse_start_line(value: &str) -> nom::IResult<&str, Header> {
 #[derive(Debug)]
 pub enum Method {
     Get,
+    Post,
 }
 
 impl FromStr for Method {
@@ -79,6 +81,7 @@ impl FromStr for Method {
         use Method::*;
         match s {
             "GET" => Ok(Get),
+            "POST" => Ok(Post),
             _ => bail!("Unknown method: {s}"),
         }
     }

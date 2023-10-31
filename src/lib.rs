@@ -82,7 +82,11 @@ async fn process_response(mut stream: TcpStream, request: Request) -> Result<()>
         },
     };
 
-    stream.write(response.to_string().as_bytes()).await.unwrap();
+    let response_serialized = response.to_string();
+    let size = stream.write(response_serialized.as_bytes()).await.unwrap();
+    if size != response_serialized.as_bytes().len() {
+        eprintln!("Bytes sent does not match bytes to sent.");
+    }
 
     Ok(())
 }

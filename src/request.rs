@@ -3,7 +3,7 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, take_until},
     character::complete::{crlf, not_line_ending},
-    sequence::{terminated, tuple, separated_pair},
+    sequence::{terminated, tuple},
 };
 use std::{str::FromStr, collections::HashMap};
 
@@ -27,7 +27,7 @@ impl FromStr for Request {
         let mut request = request;
         loop {
             println!("Parsing request: \n{request}");
-            if request == "\r\n" || request == "" {
+            if request == "\r\n" || request.is_empty() {
                 break;
             }
             let (rem_request, (key, value)) = parse_header_line(request).unwrap();

@@ -131,7 +131,7 @@ async fn process_request(mut stream: TcpStream) -> Result<(TcpStream, Request)> 
         let size = size.parse().unwrap();
         let mut body = vec![0u8; size];
         match reader.read_exact(&mut body[..size]).await {
-            Ok(s) if s == size => request.body = Vec::from(body),
+            Ok(s) if s == size => request.body = body,
             _ => { return Err(io::Error::from(io::ErrorKind::UnexpectedEof)); },
         }
     }

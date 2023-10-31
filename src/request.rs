@@ -17,7 +17,7 @@ impl FromStr for Request {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        let mut parse_header_line = tuple((terminated(take_until(":"), tag(": ")), not_line_ending::<_, ()>));
+        let mut parse_header_line = terminated(tuple((terminated(take_until(":"), tag(": ")), not_line_ending::<_, ()>)), crlf);
 
 
         let mut header = HashMap::new();
@@ -26,6 +26,7 @@ impl FromStr for Request {
         let (request, start_line) = parse_start_line(request).unwrap();
         let mut request = request;
         loop {
+            println!("Parsing request: \n{request}");
             if request == "\r\n" || request == "" {
                 break;
             }

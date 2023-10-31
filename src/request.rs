@@ -31,7 +31,6 @@ impl FromStr for Request {
         let (request, start_line) = parse_start_line(request).unwrap();
         let mut request = request;
         loop {
-            println!("Parsing request: \n{request}");
             if request == "\r\n" || request.is_empty() {
                 break;
             }

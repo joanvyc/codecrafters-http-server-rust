@@ -1,12 +1,16 @@
 pub mod request;
 pub mod response;
 
+use std::env::args;
+use std::path::Path;
+use std::{io::ErrorKind, str::from_utf8};
+
 use request::Request;
 use tokio::{
-    io::{AsyncBufReadExt, AsyncWriteExt, BufReader, Result},
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader, Result, AsyncReadExt},
     net::{TcpListener, TcpStream},
     select,
-    task::JoinSet,
+    task::JoinSet, fs::File,
 };
 
 use crate::response::{ContentType, Response, StatusCode};
@@ -86,6 +90,57 @@ async fn process_response(mut stream: TcpStream, request: Request) -> Result<()>
                 content_type: ContentType::TextPlain,
                 content_lenght: body.len(),
                 body: body.to_string(),
+            }
+        }
+        s if s.starts_with("/file/") => {
+
+            let base_dir = if Some("--directory".to_string()) == args().nth(1) {
+                args().nth(2).expect("missing directory file")
+            } else {
+                "./".to_string()
+            };
+
+            let file_name = s.strip_prefix("/file/").unwrap();
+            let file_name = Path::new(&base_dir).join(file_name);
+
+            match File::open(file_name).await {
+                Ok(mut file) => {
+
+                    let size = file.metadata().await?.len();
+
+                    let mut file_content = Vec::with_capacity(size as usize);
+                    let _len = file.read_to_end(&mut file_content).await;
+
+                    Response {
+                        header: response::Header {
+                            version: 1,
+                            code: StatusCode::Ok,
+                        },
+                        content_type: ContentType::ApplicationOctetStream,
+                        content_lenght: file_content.len(),
+                        body: from_utf8(&file_content).unwrap().to_string(),
+                    }
+                },
+
+                Err(e) if e.kind() == ErrorKind::NotFound => Response {
+                    header: response::Header {
+                        version: 1,
+                        code: StatusCode::NotFound,
+                    },
+                    content_type: ContentType::TextPlain,
+                    content_lenght: "Not found".len(),
+                    body: "Not found".to_string(),
+                },
+
+                Err(_) => Response {
+                    header: response::Header {
+                        version: 1,
+                        code: StatusCode::Ok,
+                    },
+                    content_type: ContentType::TextPlain,
+                    content_lenght: "Internal server error".len(),
+                    body: "Internal server error".to_string(),
+                },
             }
         }
         _ => Response {

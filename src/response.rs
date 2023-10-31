@@ -46,6 +46,7 @@ impl Display for StatusCode {
 
 pub enum ContentType {
     TextPlain,
+    ApplicationOctetStream,
 }
 
 impl Display for ContentType {
@@ -55,6 +56,7 @@ impl Display for ContentType {
             "Content-Type: {}",
             match self {
                 Self::TextPlain => "text/plain",
+                Self::ApplicationOctetStream => "application/octet-stream",
             }
         )
     }

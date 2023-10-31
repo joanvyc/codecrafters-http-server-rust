@@ -92,7 +92,7 @@ async fn process_response(mut stream: TcpStream, request: Request) -> Result<()>
                 body: body.to_string(),
             }
         }
-        s if s.starts_with("/file/") => {
+        s if s.starts_with("/files/") => {
 
             let base_dir = if Some("--directory".to_string()) == args().nth(1) {
                 args().nth(2).expect("missing directory file")
@@ -100,10 +100,8 @@ async fn process_response(mut stream: TcpStream, request: Request) -> Result<()>
                 "./".to_string()
             };
 
-            let file_name = s.strip_prefix("/file/").unwrap();
+            let file_name = s.strip_prefix("/files/").unwrap();
             let file_name = Path::new(&base_dir).join(file_name);
-
-            eprintln!("Downloading file: {file_name:?}");
 
             match File::open(file_name).await {
                 Ok(mut file) => {

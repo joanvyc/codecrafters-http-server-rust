@@ -3,14 +3,15 @@ pub mod response;
 
 use request::Request;
 use tokio::{
-    io::{AsyncBufReadExt, BufReader, AsyncWriteExt, Result},
-    net::{TcpListener, TcpStream}, task::JoinSet, select,
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader, Result},
+    net::{TcpListener, TcpStream},
+    select,
+    task::JoinSet,
 };
 
-use crate::response::{Response, StatusCode, ContentType};
+use crate::response::{ContentType, Response, StatusCode};
 
 async fn process_request(mut stream: TcpStream) -> Result<(TcpStream, Request)> {
-
     let mut reader = BufReader::new(&mut stream);
 
     let mut line = String::new();
@@ -21,15 +22,17 @@ async fn process_request(mut stream: TcpStream) -> Result<(TcpStream, Request)> 
             Ok(0) => {
                 // Connection closed.
                 break;
-            },
+            }
             Ok(_) => {
                 request.push_str(&line);
-                if &line == "\r\n" { break; }
+                if &line == "\r\n" {
+                    break;
+                }
                 line.clear();
-            },
+            }
             Err(e) => {
                 eprintln!("Error reading from the stream: {e}");
-            },
+            }
         }
     }
 
@@ -40,10 +43,12 @@ async fn process_request(mut stream: TcpStream) -> Result<(TcpStream, Request)> 
 }
 
 async fn process_response(mut stream: TcpStream, request: Request) -> Result<()> {
-
     let response = match request.start_line.path.as_str() {
         "/" => Response {
-            header: response::Header { version: 1, code: StatusCode::Ok },
+            header: response::Header {
+                version: 1,
+                code: StatusCode::Ok,
+            },
             content_type: ContentType::TextPlain,
             content_lenght: 0,
             body: "".to_string(),
@@ -51,31 +56,43 @@ async fn process_response(mut stream: TcpStream, request: Request) -> Result<()>
         "/user-agent" => {
             if let Some(body) = request.header.get("User-Agent") {
                 Response {
-                    header: response::Header { version: 1, code: StatusCode::Ok },
+                    header: response::Header {
+                        version: 1,
+                        code: StatusCode::Ok,
+                    },
                     content_type: ContentType::TextPlain,
                     content_lenght: body.len(),
                     body: body.to_owned(),
                 }
             } else {
                 Response {
-                    header: response::Header { version: 1, code: StatusCode::NotFound },
+                    header: response::Header {
+                        version: 1,
+                        code: StatusCode::NotFound,
+                    },
                     content_type: ContentType::TextPlain,
                     content_lenght: 0,
                     body: "".to_string(),
                 }
             }
-        },
-        s if s.starts_with("/echo/") => { 
+        }
+        s if s.starts_with("/echo/") => {
             let body = s.strip_prefix("/echo/").unwrap();
-            Response { 
-                header: response::Header { version: 1, code: StatusCode::Ok },
+            Response {
+                header: response::Header {
+                    version: 1,
+                    code: StatusCode::Ok,
+                },
                 content_type: ContentType::TextPlain,
                 content_lenght: body.len(),
                 body: body.to_string(),
             }
         }
         _ => Response {
-            header: response::Header { version: 1, code: StatusCode::NotFound },
+            header: response::Header {
+                version: 1,
+                code: StatusCode::NotFound,
+            },
             content_type: ContentType::TextPlain,
             content_lenght: 0,
             body: "".to_string(),
@@ -92,7 +109,6 @@ async fn process_response(mut stream: TcpStream, request: Request) -> Result<()>
 }
 
 pub async fn run_server() {
-
     let mut requests = JoinSet::new();
     let mut responses = JoinSet::new();
 
@@ -111,5 +127,4 @@ pub async fn run_server() {
             Some(Ok(Ok(()))) = responses.join_next() => {}
         }
     }
-
 }

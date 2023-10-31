@@ -5,20 +5,25 @@ use nom::{
     character::complete::{crlf, not_line_ending},
     sequence::{terminated, tuple},
 };
-use std::{str::FromStr, collections::HashMap};
+use std::{collections::HashMap, str::FromStr};
 
 #[derive(Debug)]
 pub struct Request {
     pub start_line: Header,
-    pub header: HashMap<String, String>
+    pub header: HashMap<String, String>,
 }
 
 impl FromStr for Request {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        let mut parse_header_line = terminated(tuple((terminated(take_until(":"), tag(": ")), not_line_ending::<_, ()>)), crlf);
-
+        let mut parse_header_line = terminated(
+            tuple((
+                terminated(take_until(":"), tag(": ")),
+                not_line_ending::<_, ()>,
+            )),
+            crlf,
+        );
 
         let mut header = HashMap::new();
 

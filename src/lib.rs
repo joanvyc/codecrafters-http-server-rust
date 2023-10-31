@@ -103,6 +103,8 @@ async fn process_response(mut stream: TcpStream, request: Request) -> Result<()>
             let file_name = s.strip_prefix("/file/").unwrap();
             let file_name = Path::new(&base_dir).join(file_name);
 
+            eprintln!("Downloading file: {file_name:?}");
+
             match File::open(file_name).await {
                 Ok(mut file) => {
 
